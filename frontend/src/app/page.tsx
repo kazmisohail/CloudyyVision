@@ -1,0 +1,170 @@
+"use client";
+
+import { useState, useRef } from 'react';
+import Navbar from '@/components/Navbar';
+import UploadZone from '@/components/UploadZone';
+import ResultsDashboard from '@/components/ResultsDashboard';
+
+export default function Home() {
+  const [analysisResult, setAnalysisResult] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [originalImage, setOriginalImage] = useState<string | null>(null);
+  const [geminiAnalysis, setGeminiAnalysis] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState<string>('v2');
+  const resultsRef = useRef<HTMLDivElement>(null);
+
+  const handleAnalyze = async (file: File) => {
+    setIsLoading(true);
+    setAnalysisResult(null);
+    setGeminiAnalysis(null);
+
+    // Create object URL for preview
+    const objectUrl = URL.createObjectURL(file);
+    setOriginalImage(objectUrl);
+
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('model_type', selectedModel);
+
+    try {
+      // Step 1: Get prediction results
+      const response = await fetch('http://localhost:8000/api/predict/', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error('Analysis failed');
+      }
+
+      const data = await response.json();
+      setAnalysisResult(data);
+
+      // Step 2: Get Gemini insights based on percentages
+      try {
+        const geminiResponse = await fetch('http://localhost:8000/api/gemini-analysis/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            percentages: data.percentages
+          }),
+        });
+
+        if (geminiResponse.ok) {
+          const geminiData = await geminiResponse.json();
+          setGeminiAnalysis(geminiData.analysis);
+        }
+      } catch (geminiError) {
+        console.error("Error fetching Gemini analysis:", geminiError);
+        setGeminiAnalysis("AI analysis unavailable at this time.");
+      }
+
+      // Scroll to results
+      setTimeout(() => {
+        resultsRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+
+    } catch (error) {
+      console.error("Error analyzing image:", error);
+      alert("Failed to analyze image. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-[#0f172a] overflow-x-hidden">
+      {/* Hero Section */}
+      <section className="relative h-[80vh] flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=2072&auto=format&fit=crop')] bg-cover bg-center opacity-40"></div>
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#0f172a]/50 to-[#0f172a]"></div>
+
+        <div className="relative z-10 text-center px-4 max-w-4xl mx-auto mt-16">
+          <div className="inline-block mb-4 px-4 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 backdrop-blur-md">
+            <span className="text-cyan-400 text-sm font-medium tracking-wide">POWERED BY ATTENTION U-NET & GEMINI 2.5</span>
+          </div>
+          <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 tracking-tight">
+            Precision Cloud <br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-600">Segmentation</span>
+          </h1>
+          <p className="text-lg md:text-xl text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
+            Advanced satellite imagery analysis for meteorological insights and solar potential assessment.
+          </p>
+        </div>
+      </section>
+
+      {/* Control Panel */}
+      <section id="analysis-console" className="w-full max-w-5xl mx-auto px-4 -mt-20 relative z-20 mb-20">
+        <div className="relative bg-slate-900/80 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl overflow-hidden">
+          {/* Background Animation - Moving Clouds */}
+          <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+            {/* First thick white cloud layer - STATIC */}
+            <div
+              className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/asfalt-light.png')] bg-repeat opacity-80"
+              style={{
+                backgroundSize: '400px 400px',
+                filter: 'brightness(3) contrast(2)'
+              }}
+            />
+            {/* Second thick white cloud layer - STATIC */}
+            <div
+              className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] bg-repeat opacity-70"
+              style={{
+                backgroundSize: '600px 600px',
+                filter: 'brightness(4) contrast(1.5) invert(1)'
+              }}
+            />
+            {/* Third layer - ANIMATED shining stars moving right to left */}
+            <div
+              className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/stardust.png')] bg-repeat opacity-60"
+              style={{
+                backgroundSize: '800px 600px',
+                animation: 'moveCloud 70s linear infinite',
+                filter: 'brightness(3.5) contrast(1.8)'
+              }}
+            />
+          </div>
+
+          <div className="relative z-10 flex flex-col gap-8">
+            <div className="flex items-center justify-between border-b border-white/10 pb-6">
+              <div className="flex items-center gap-4">
+                <div className="h-3 w-3 rounded-full bg-green-500 shadow-[0_0_10px_rgba(34,197,94,0.5)]"></div>
+                <span className="text-gray-300 font-mono text-sm">SYSTEM ONLINE</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-gray-400 text-sm">Model:</span>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="bg-slate-800 border border-white/10 text-white text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block p-2"
+                >
+                  <option value="v1">Attention U-Net V1</option>
+                  <option value="v2">Attention U-Net V2</option>
+                  <option value="v3">Attention U-Net V3 (Balanced)</option>
+                  <option disabled>Prithvi-100M (Coming Soon)</option>
+                </select>
+              </div>
+            </div>
+
+            <UploadZone onAnalyze={handleAnalyze} isAnalyzing={isLoading} />
+          </div>
+        </div>
+      </section>
+
+      {/* Results Section */}
+      <div ref={resultsRef}>
+        {analysisResult && (
+          <ResultsDashboard
+            originalImage={originalImage}
+            maskImage={analysisResult.mask}
+            percentages={analysisResult.percentages}
+            hasShadow={analysisResult.has_shadow}
+            geminiAnalysis={geminiAnalysis}
+          />
+        )}
+      </div>
+    </main>
+  );
+}
