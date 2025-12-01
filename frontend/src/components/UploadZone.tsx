@@ -28,7 +28,7 @@ export default function UploadZone({ onAnalyze, isAnalyzing }: UploadZoneProps) 
 
         if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
             const file = e.dataTransfer.files[0];
-            if (file.type.startsWith('image/')) {
+            if (file.type.startsWith('image/') || file.name.toLowerCase().endsWith('.npy')) {
                 setSelectedFile(file);
             }
         }
@@ -46,6 +46,8 @@ export default function UploadZone({ onAnalyze, isAnalyzing }: UploadZoneProps) 
             onAnalyze(selectedFile);
         }
     };
+
+    const isNpy = selectedFile?.name.toLowerCase().endsWith('.npy');
 
     return (
         <div className="w-full max-w-2xl mx-auto relative group space-y-6">
@@ -66,7 +68,16 @@ export default function UploadZone({ onAnalyze, isAnalyzing }: UploadZoneProps) 
                     <div className="flex flex-col items-center justify-center pt-5 pb-6 relative z-20">
                         {selectedFile ? (
                             <>
-                                <FileImage className="w-12 h-12 mb-4 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+                                {isNpy ? (
+                                    <div className="flex flex-col items-center">
+                                        <div className="w-16 h-16 mb-4 bg-slate-800 rounded-lg flex items-center justify-center border border-cyan-500/50 shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                                            <span className="text-cyan-400 font-mono font-bold text-xl">NPY</span>
+                                        </div>
+                                        <p className="mb-2 text-sm text-cyan-300 font-medium">Scientific Data File</p>
+                                    </div>
+                                ) : (
+                                    <FileImage className="w-12 h-12 mb-4 text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.5)]" />
+                                )}
                                 <p className="mb-2 text-sm text-gray-200 font-medium">
                                     <span className="font-semibold text-cyan-400">Selected:</span> {selectedFile.name}
                                 </p>
@@ -78,7 +89,7 @@ export default function UploadZone({ onAnalyze, isAnalyzing }: UploadZoneProps) 
                                 <p className="mb-2 text-sm text-gray-300">
                                     <span className="font-semibold text-cyan-400">Click to upload</span> or drag and drop
                                 </p>
-                                <p className="text-xs text-gray-400">PNG, JPG or TIFF (MAX. 800x800px)</p>
+                                <p className="text-xs text-gray-400">PNG, JPG, TIFF or .NPY (Scientific Data)</p>
                             </>
                         )}
                     </div>
@@ -86,7 +97,7 @@ export default function UploadZone({ onAnalyze, isAnalyzing }: UploadZoneProps) 
                         id="file-upload"
                         type="file"
                         className="hidden"
-                        accept="image/*"
+                        accept="image/*,.npy"
                         onChange={handleFileInput}
                     />
                 </div>

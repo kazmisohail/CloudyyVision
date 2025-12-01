@@ -2,37 +2,14 @@ import tensorflow as tf
 from tensorflow.keras import backend as K
 import os
 
-# --- V2 CONFIGURATION ---
+# --- V2 CONFIGURATION (Advanced) ---
 NUM_CLASSES = 5
 CLASS_WEIGHTS_DICT = {0: 3.531, 1: 0.430, 2: 15.000, 3: 1.708, 4: 0.569}
+# Create tensor (re-creating the clip logic used in training)
 weights_v2 = tf.constant([CLASS_WEIGHTS_DICT[i] for i in range(NUM_CLASSES)], dtype=tf.float32)
 weights_v2 = tf.clip_by_value(weights_v2, 0.2, 10.0)
 weights_v2 = weights_v2 / tf.reduce_mean(weights_v2)
 CLASS_WEIGHTS_TENSOR_V2 = weights_v2
-
-
-# def weighted_categorical_crossentropy_v2(weights):
-#     def loss(y_true, y_pred):
-#         y_pred = K.clip(y_pred, K.epsilon(), 1 - K.epsilon())
-#         loss_map = K.categorical_crossentropy(y_true, y_pred)
-#         weight_map = K.sum(y_true * weights, axis=-1)
-#         return K.mean(loss_map * weight_map)
-#     return loss
-
-# def multiclass_soft_dice_loss_v2(y_true, y_pred, smooth=1e-6):
-#     y_true = tf.cast(y_true, tf.float32)
-#     y_pred = tf.cast(y_pred, tf.float32)
-#     axes = [0, 1, 2]
-#     intersection = tf.reduce_sum(y_true * y_pred, axis=axes)
-#     denominator = tf.reduce_sum(y_true + y_pred, axis=axes)
-#     dice_per_class = (2. * intersection + smooth) / (denominator + smooth)
-#     return 1.0 - tf.reduce_mean(dice_per_class)
-
-# def combined_loss_v2(weights):
-#     cce = weighted_categorical_crossentropy_v2(weights)
-#     def loss(y_true, y_pred):
-#         return 0.5 * cce(y_true, y_pred) + 0.5 * multiclass_soft_dice_loss_v2(y_true, y_pred)
-#     return loss
 
 def weighted_categorical_crossentropy_v2(weights):
     def loss(y_true, y_pred):
@@ -171,10 +148,8 @@ class ModelLoader:
                 #     'mean_io_u': tf.keras.metrics.OneHotMeanIoU(num_classes=5)
                 # }
                 custom_objects = {
-                    'loss': combined_loss_v2,
-                    'combined_loss': combined_loss_v2,
-                    'combined_loss_v2': combined_loss_v2, # Catch variable naming diffs
-                    'weighted_categorical_crossentropy': weighted_categorical_crossentropy_v2,
+                    'loss': combined_loss_v2(CLASS_WEIGHTS_TENSOR_V2),
+                    'combined_loss': combined_loss_v2(CLASS_WEIGHTS_TENSOR_V2), # For safety
                     'multiclass_soft_dice_loss': multiclass_soft_dice_loss_v2,
                     'mean_io_u': tf.keras.metrics.OneHotMeanIoU(num_classes=5)
                 }

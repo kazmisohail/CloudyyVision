@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from .model_loader import ModelLoader
-from .utils import preprocess_v1, preprocess_v2, preprocess_v3, remap_classes, mask_to_base64, mitigate_shadows, image_to_base64
+from .utils import preprocess_v1, preprocess_v2, preprocess_v3, remap_classes, mask_to_base64, mitigate_shadows, image_to_base64, generate_preview_image
 import numpy as np
 import google.generativeai as genai
 import os
@@ -38,6 +38,17 @@ class PredictView(APIView):
             # Predict
             prediction = model.predict(input_tensor)
             
+            # Correction: Suppress "Thin Cloud" (Class 3) for V2/V3
+            # User reported "extra thin clouds" (false positives). 
+            # We apply a penalty to the Thin Cloud channel to reduce sensitivity.
+            if model_type in ['v2', 'v3']:
+                # Index 3 is Thin Cloud (based on remap_classes docstring)
+                # Multiply by 0.65 to require higher confidence for this class
+                prediction[0, :, :, 3] *= 0.65
+            
+            # Generate Preview Image (Fix for broken .npy preview)
+            preview_b64 = generate_preview_image(input_tensor)
+            
             # Remap Classes
             remapped_mask = remap_classes(prediction)
             
@@ -60,7 +71,8 @@ class PredictView(APIView):
                 'mask': mask_b64,
                 'percentages': percentages,
                 'has_shadow': has_shadow,
-                'model_used': model_type
+                'model_used': model_type,
+                'original_image_url': f"data:image/png;base64,{preview_b64}"
             })
 
         except Exception as e:
@@ -96,7 +108,7 @@ class MitigateView(APIView):
             remapped_mask = remap_classes(prediction)
             
             # Mitigate
-            mitigated_img = mitigate_shadows(file_obj, remapped_mask)
+            mitigated_img = mitigate_shadows(input_tensor, remapped_mask)
             mitigated_b64 = image_to_base64(mitigated_img)
             
             return Response({'mitigated_image': mitigated_b64})

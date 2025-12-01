@@ -4,20 +4,39 @@ from skimage.exposure import match_histograms
 import io
 import base64
 
-def preprocess_v1(image_file):
+def preprocess_v1(file_obj):
     """
-    V1 Preprocessing: Resize to 256x256, normalize to [0,1].
-    Updated: Pads to 8 channels (RGB + 5 Zero Padding) as the model expects 8 channels.
+    V1 Preprocessing:
+    Case A: Standard Image -> Resize to 256x256, normalize [0,1], Pad to 8 channels.
+    Case B: Scientific Data (.npy) -> Pass-through.
     """
-    img = Image.open(image_file).convert('RGB')
-    img = img.resize((256, 256))
-    img_array = np.array(img) / 255.0
+    filename = getattr(file_obj, 'name', '').lower()
     
-    # Create 8-channel input: 3 RGB + 5 Zero Padding
-    input_tensor = np.zeros((256, 256, 8), dtype=np.float32)
-    input_tensor[:, :, :3] = img_array
-    
-    return np.expand_dims(input_tensor, axis=0)
+    if filename.endswith('.npy'):
+        try:
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            data = np.load(file_obj)
+            if data.shape[-1] != 8:
+                 raise ValueError(f"Expected 8 channels, got {data.shape[-1]}")
+            return np.expand_dims(data.astype(np.float32), axis=0)
+        except Exception as e:
+            raise ValueError(f"Invalid .npy file: {e}")
+            
+    else:
+        # Existing V1 RGB Logic
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+            
+        img = Image.open(file_obj).convert('RGB')
+        img = img.resize((256, 256))
+        img_array = np.array(img) / 255.0
+        
+        # Create 8-channel input: 3 RGB + 5 Zero Padding
+        input_tensor = np.zeros((256, 256, 8), dtype=np.float32)
+        input_tensor[:, :, :3] = img_array
+        
+        return np.expand_dims(input_tensor, axis=0)
 
 # def preprocess_v2(image_file):
 #     """
@@ -50,9 +69,9 @@ def preprocess_v1(image_file):
 
 #     return np.expand_dims(input_tensor, axis=0)
 
-def preprocess_v2(image_file):
+def preprocess_v2_legacy(image_file):
     """
-    V2 Preprocessing (Safe Mode):
+    Legacy V2 Preprocessing (Safe Mode):
     1. Resize to 256x256
     2. Normalize [0, 1] ONLY. (Removing Standardization to fix 'worse' results)
     3. Pad to 8 channels.
@@ -75,14 +94,91 @@ def preprocess_v2(image_file):
     
     return np.expand_dims(input_tensor, axis=0)
 
-def preprocess_v3(image_file):
+def preprocess_v2(file_obj):
     """
-    V3 Preprocessing (Same as V2 Safe Mode):
-    1. Resize to 256x256
-    2. Normalize [0, 1] ONLY.
-    3. Pad to 8 channels.
+    Polymorphic Preprocessor for V2:
+    Case A: Standard Image (JPG/PNG) -> Resize, Normalize, Pad to 8 channels.
+    Case B: Scientific Data (.npy) -> Load, Verify Shape, Pass-through.
     """
-    return preprocess_v2(image_file)
+    filename = getattr(file_obj, 'name', '').lower()
+    
+    if filename.endswith('.npy'):
+        # Case B: Scientific Data (.npy)
+        try:
+            # Reset file pointer just in case
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            
+            data = np.load(file_obj)
+            
+            # Verify shape
+            if data.shape != (256, 256, 8):
+                # If shape is wrong, try to resize or error out?
+                # User said: "Verify shape is (256, 256, 8)"
+                # Let's assume strict verification for now, or maybe basic resizing if it's 8 channels but wrong size?
+                # But .npy usually implies exact scientific data.
+                # Let's return error or raise exception if shape doesn't match?
+                # For robustness, if it's (H, W, 8), maybe resize? But scientific data resizing is risky.
+                # Let's stick to strict check as per "Verify shape".
+                if data.shape[-1] != 8:
+                     raise ValueError(f"Expected 8 channels, got {data.shape[-1]}")
+                
+                # If just dimensions are different, maybe resize? 
+                # User didn't specify resizing for .npy, only for Image.
+                # "Action: Load using numpy. Verify shape is (256, 256, 8)."
+                # So we expect exact shape.
+                pass 
+
+            return np.expand_dims(data.astype(np.float32), axis=0)
+            
+        except Exception as e:
+            print(f"Error loading .npy file: {e}")
+            # Fallback or re-raise?
+            raise ValueError(f"Invalid .npy file: {e}")
+
+    else:
+        # Case A: Standard Image
+        # Reset file pointer
+        if hasattr(file_obj, 'seek'):
+            file_obj.seek(0)
+            
+        img = Image.open(file_obj).convert('RGB')
+        img = img.resize((256, 256))
+        img_array = np.array(img) / 255.0  # Normalize [0, 1]
+
+        # Padding: Create a dummy 8-channel tensor (256, 256, 8)
+        input_tensor = np.zeros((256, 256, 8), dtype=np.float32)
+        
+        # Fill channels 0, 1, 2 with RGB
+        input_tensor[:, :, 0] = img_array[:, :, 0]
+        input_tensor[:, :, 1] = img_array[:, :, 1]
+        input_tensor[:, :, 2] = img_array[:, :, 2]
+        
+        # Leave channels 3-7 as zeros
+        
+        return np.expand_dims(input_tensor, axis=0)
+
+def preprocess_v3(file_obj):
+    """
+    V3 Preprocessing:
+    Case A: Standard Image -> Same as V2 Safe Mode (via legacy).
+    Case B: Scientific Data (.npy) -> Pass-through.
+    """
+    filename = getattr(file_obj, 'name', '').lower()
+    
+    if filename.endswith('.npy'):
+        try:
+            if hasattr(file_obj, 'seek'):
+                file_obj.seek(0)
+            data = np.load(file_obj)
+            if data.shape[-1] != 8:
+                 raise ValueError(f"Expected 8 channels, got {data.shape[-1]}")
+            return np.expand_dims(data.astype(np.float32), axis=0)
+        except Exception as e:
+            raise ValueError(f"Invalid .npy file: {e}")
+            
+    else:
+        return preprocess_v2_legacy(file_obj)
 
 # Alias for backward compatibility if needed, but views should switch to v1/v2
 preprocess_image = preprocess_v1 
@@ -131,14 +227,25 @@ def mask_to_base64(mask):
     img.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
 
-def mitigate_shadows(original_image_file, mask):
+def mitigate_shadows(input_tensor, mask):
     """
     Uses histogram matching to mitigate shadows.
     Treats Class 1 (Shadow) in the remapped mask as the region to correct.
+    Input: input_tensor (1, 256, 256, 8) - Preprocessed data
     """
-    img = Image.open(original_image_file).convert('RGB')
-    img = img.resize((256, 256))
-    img_array = np.array(img)
+    # 1. Extract RGB and Convert to uint8 (0-255)
+    data = input_tensor[0]
+    rgb = data[:, :, :3]
+    
+    _min = np.min(rgb)
+    _max = np.max(rgb)
+    
+    if _max > _min:
+        rgb_norm = (rgb - _min) / (_max - _min)
+    else:
+        rgb_norm = rgb
+        
+    img_array = (rgb_norm * 255).astype(np.uint8)
     
     # Create a boolean mask for shadows
     shadow_mask = (mask == 1)
@@ -166,6 +273,33 @@ def mitigate_shadows(original_image_file, mask):
             mitigated[:, :, c][shadow_mask] = np.clip(corrected, 0, 255)
             
     return mitigated
+
+def generate_preview_image(input_tensor):
+    """
+    Generates a displayable RGB preview from the input tensor.
+    Input: (1, 256, 256, 8) or similar.
+    Output: Base64 encoded PNG string.
+    """
+    # Remove batch dimension: (256, 256, 8)
+    data = input_tensor[0]
+    
+    # Extract RGB bands (Assuming 0, 1, 2 are R, G, B)
+    rgb = data[:, :, :3]
+    
+    # Normalize for display (Min-Max Scaling)
+    # This handles both [0,1] normalized data and standardized (centered) data
+    _min = np.min(rgb)
+    _max = np.max(rgb)
+    
+    if _max > _min:
+        rgb_norm = (rgb - _min) / (_max - _min)
+    else:
+        rgb_norm = rgb # Avoid divide by zero, likely all zeros or constant
+        
+    # Convert to uint8 [0, 255]
+    rgb_uint8 = (rgb_norm * 255).astype(np.uint8)
+    
+    return image_to_base64(rgb_uint8)
 
 def image_to_base64(img_array):
     img = Image.fromarray(img_array.astype(np.uint8))

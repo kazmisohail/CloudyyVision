@@ -22,3 +22,12 @@ models/
 
 # Logs
 *.log
+
+# Media & Uploads
+media/
+uploads/
+*.npy
+*.png
+*.jpg
+*.jpeg
+!static/
