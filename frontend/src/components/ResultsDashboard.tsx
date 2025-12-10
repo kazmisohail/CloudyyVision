@@ -6,6 +6,7 @@ import { AlertTriangle, ChevronDown, ChevronUp, Download, Zap } from 'lucide-rea
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 import { Doughnut } from 'react-chartjs-2';
 import jsPDF from 'jspdf';
+import WeatherCard from './WeatherCard';
 
 ChartJS.register(ArcElement, Tooltip, Legend);
 
@@ -13,6 +14,7 @@ interface ResultsDashboardProps {
     originalImage: string | null;
     maskImage: string | null;
     mitigatedImage?: string | null;
+    solarHeatmap?: string | null;
     percentages: {
         Clear: number;
         Shadow: number;
@@ -29,6 +31,7 @@ export default function ResultsDashboard({
     originalImage,
     maskImage,
     mitigatedImage,
+    solarHeatmap,
     percentages,
     hasShadow,
     geminiAnalysis,
@@ -36,6 +39,7 @@ export default function ResultsDashboard({
     isMitigating = false,
 }: ResultsDashboardProps) {
     const [isAnalysisOpen, setIsAnalysisOpen] = useState(false);
+    const [showSolarMap, setShowSolarMap] = useState(false);
 
     const chartData = percentages ? {
         labels: ['Clear', 'Shadow', 'Thin Cloud', 'Thick Cloud'],
@@ -65,7 +69,7 @@ export default function ResultsDashboard({
         // Title
         doc.setFontSize(20);
         doc.setTextColor(34, 211, 238);
-        doc.text('CloudyyVision Analysis Report', 20, 20);
+        doc.text('CloudVision Analysis Report', 20, 20);
 
         // Date
         doc.setFontSize(10);
@@ -99,7 +103,7 @@ export default function ResultsDashboard({
         }
 
         // Save PDF
-        doc.save('cloudyyvision_analysis_report.pdf');
+        doc.save('cloudvision_analysis_report.pdf');
 
         // Also download images
         if (maskImage) {
@@ -121,6 +125,13 @@ export default function ResultsDashboard({
             aMitigated.href = `data:image/png;base64,${mitigatedImage}`;
             aMitigated.download = 'mitigated_image.png';
             aMitigated.click();
+        }
+
+        if (solarHeatmap) {
+            const aSolar = document.createElement('a');
+            aSolar.href = `data:image/png;base64,${solarHeatmap}`;
+            aSolar.download = 'solar_potential_map.png';
+            aSolar.click();
         }
     };
 
@@ -154,6 +165,16 @@ export default function ResultsDashboard({
                 </div>
             )}
 
+            {/* Solar Map Toggle */}
+            <div className="flex justify-end">
+                <button
+                    onClick={() => setShowSolarMap(!showSolarMap)}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${showSolarMap ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-slate-800 text-gray-400 hover:text-white border border-white/10'}`}
+                >
+                    {showSolarMap ? 'Hide Solar Potential' : 'Show Solar Potential Heatmap'}
+                </button>
+            </div>
+
             {/* Image Grid */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Original */}
@@ -166,23 +187,33 @@ export default function ResultsDashboard({
                     </div>
                 </div>
 
-                {/* Mask */}
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/10">
-                    <h3 className="text-lg font-medium text-gray-300 mb-3">Segmentation Mask</h3>
+                {/* Mask / Solar Map */}
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-white/10 relative">
+                    <h3 className="text-lg font-medium text-gray-300 mb-3">{showSolarMap ? 'Solar Potential Heatmap' : 'Segmentation Mask'}</h3>
                     <div className="relative aspect-square rounded-lg overflow-hidden bg-slate-900">
-                        {/* Background image removed as per user request for "defined classes colors only" */}
-                        {maskImage ? (
+                        {showSolarMap && solarHeatmap ? (
+                            <Image src={`data:image/png;base64,${solarHeatmap}`} alt="Solar Map" fill className="object-cover" />
+                        ) : maskImage ? (
                             <Image src={`data:image/png;base64,${maskImage}`} alt="Mask" fill className="object-cover" />
                         ) : (
-                            <div className="flex items-center justify-center h-full text-gray-500 text-sm">No mask generated</div>
+                            <div className="flex items-center justify-center h-full text-gray-500 text-sm">No data generated</div>
                         )}
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                        <span className="px-2 py-1 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">Clear</span>
-                        <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Shadow</span>
-                        <span className="px-2 py-1 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Thin Cloud</span>
-                        <span className="px-2 py-1 rounded bg-white/20 text-white border border-white/30">Thick Cloud</span>
-                    </div>
+                    {!showSolarMap && (
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                            <span className="px-2 py-1 rounded bg-teal-500/20 text-teal-300 border border-teal-500/30">Clear</span>
+                            <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Shadow</span>
+                            <span className="px-2 py-1 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Thin Cloud</span>
+                            <span className="px-2 py-1 rounded bg-white/20 text-white border border-white/30">Thick Cloud</span>
+                        </div>
+                    )}
+                    {showSolarMap && (
+                        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                            <span className="px-2 py-1 rounded bg-red-500/20 text-red-300 border border-red-500/30">High (100%)</span>
+                            <span className="px-2 py-1 rounded bg-yellow-500/20 text-yellow-300 border border-yellow-500/30">Medium (50%)</span>
+                            <span className="px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">Low (10%)</span>
+                        </div>
+                    )}
                 </div>
 
                 {/* Mitigated */}
@@ -240,6 +271,11 @@ export default function ResultsDashboard({
                         <p className="mt-2 text-gray-500 text-xs truncate">{geminiAnalysis}</p>
                     )}
                 </div>
+            </div>
+
+            {/* Weather Intelligence Section */}
+            <div className="mt-6">
+                <WeatherCard percentages={percentages} />
             </div>
 
             {/* Action Buttons */}

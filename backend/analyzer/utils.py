@@ -306,3 +306,40 @@ def image_to_base64(img_array):
     buffer = io.BytesIO()
     img.save(buffer, format="PNG")
     return base64.b64encode(buffer.getvalue()).decode('utf-8')
+import cv2
+
+def generate_solar_heatmap(mask):
+    """
+    Generates a Solar Potential Heatmap from the segmentation mask.
+    Logic:
+    - Clear (1) -> 100% Intensity (Red)
+    - Thin Cloud (3) -> 50% Intensity (Yellow)
+    - Shadow (2) / Thick (4) -> 10% Intensity (Blue)
+    
+    Note: The input 'mask' here is the remapped mask where:
+    0: Clear (Wait, remap_classes says: 0: Clear, 1: Shadow, 2: Thin, 3: Thick)
+    Let's align with remap_classes output:
+    0: Clear -> High Potential (100%)
+    1: Shadow -> Low Potential (10%)
+    2: Thin -> Medium Potential (50%)
+    3: Thick -> Low Potential (10%)
+    """
+    h, w = mask.shape
+    heatmap = np.zeros((h, w), dtype=np.uint8)
+    
+    # Assign intensities (0-255)
+    # Clear (0) -> 255 (High)
+    heatmap[mask == 0] = 255
+    # Thin Cloud (2) -> 127 (Medium)
+    heatmap[mask == 2] = 127
+    # Shadow (1) & Thick (3) -> 25 (Low)
+    heatmap[mask == 1] = 25
+    heatmap[mask == 3] = 25
+    
+    # Apply Color Map (Jet)
+    # cv2.applyColorMap expects uint8 [0, 255]
+    # It returns BGR, so convert to RGB
+    colormap = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+    colormap_rgb = cv2.cvtColor(colormap, cv2.COLOR_BGR2RGB)
+    
+    return image_to_base64(colormap_rgb)

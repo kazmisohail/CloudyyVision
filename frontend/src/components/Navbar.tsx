@@ -27,7 +27,7 @@ export default function Navbar() {
                 <Link href="/" className="flex items-center space-x-3 rtl:space-x-reverse">
                     <Cloud className="h-8 w-8 text-cyan-400" />
                     <span className="self-center text-2xl font-semibold whitespace-nowrap text-white">
-                        CloudyyVision
+                        CloudVision
                     </span>
                 </Link>
                 <div className="flex md:order-2 space-x-3 md:space-x-0 rtl:space-x-reverse">

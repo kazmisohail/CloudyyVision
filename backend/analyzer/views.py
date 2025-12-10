@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework import status
 from .model_loader import ModelLoader
-from .utils import preprocess_v1, preprocess_v2, preprocess_v3, remap_classes, mask_to_base64, mitigate_shadows, image_to_base64, generate_preview_image
+from .utils import preprocess_v1, preprocess_v2, preprocess_v3, remap_classes, mask_to_base64, mitigate_shadows, image_to_base64, generate_preview_image, generate_solar_heatmap
 import numpy as np
 import google.generativeai as genai
 import os
@@ -67,12 +67,16 @@ class PredictView(APIView):
             # Convert Mask to Base64 (Grayscale)
             mask_b64 = mask_to_base64(remapped_mask)
             
+            # Generate Solar Heatmap
+            solar_heatmap_b64 = generate_solar_heatmap(remapped_mask)
+            
             return Response({
                 'mask': mask_b64,
                 'percentages': percentages,
                 'has_shadow': has_shadow,
                 'model_used': model_type,
-                'original_image_url': f"data:image/png;base64,{preview_b64}"
+                'original_image_url': f"data:image/png;base64,{preview_b64}",
+                'solar_heatmap': solar_heatmap_b64
             })
 
         except Exception as e:
@@ -151,3 +155,40 @@ class GeminiAnalysisView(APIView):
             print(f"Gemini API Error: {e}")
             # Return the actual error to the frontend for debugging
             return Response({'analysis': f"AI Analysis Error: {str(e)}"}, status=status.HTTP_200_OK)
+
+class ChatView(APIView):
+    def post(self, request, *args, **kwargs):
+        message = request.data.get('message')
+        metrics = request.data.get('image_metrics')
+        
+        if not message:
+            return Response({'error': 'No message provided'}, status=status.HTTP_400_BAD_REQUEST)
+            
+        api_key = os.getenv('GEMINI_API_KEY')
+        if not api_key:
+             return Response({'error': 'Gemini API Key not configured'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+             
+        try:
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-2.5-flash-lite')
+            
+            # Construct System Prompt
+            context = f"The user is looking at an image with the following stats: {json.dumps(metrics)}." if metrics else "No specific image context provided."
+            
+            system_prompt = (
+                "You are OrbitAI, an expert Satellite Analyst for CloudVision. "
+                f"{context} "
+                "Answer the user's questions specifically based on this data if available. "
+                "Keep answers concise, professional, and helpful. "
+                "If asked about solar potential, refer to the Clear Sky percentage. "
+                "If asked about weather, refer to the Cloud Coverage."
+            )
+            
+            full_prompt = f"{system_prompt}\n\nUser: {message}\nOrbitAI:"
+            
+            response = model.generate_content(full_prompt)
+            return Response({'reply': response.text})
+            
+        except Exception as e:
+            print(f"Chat Error: {e}")
+            return Response({'reply': "I'm having trouble connecting to the satellite network right now. Please try again."}, status=status.HTTP_200_OK)

@@ -7,7 +7,7 @@ export default function Footer() {
                 <span className="block text-sm text-gray-400 sm:text-center">
                     © 2025{' '}
                     <a href="https://github.com/kazmisohail/cloudyyvision" className="hover:underline">
-                        CloudyyVision™
+                        CloudVision™
                     </a>
                     . All Rights Reserved.
                 </span>

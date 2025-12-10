@@ -14,7 +14,7 @@ export default function TeamPage() {
                 <div className="text-center space-y-4">
                     <h1 className="text-4xl md:text-5xl font-bold text-white">Meet the Team</h1>
                     <p className="text-cyan-400 max-w-2xl mx-auto">
-                        The minds behind CloudyyVision.
+                        The minds behind CloudVision.
                     </p>
                 </div>
 
