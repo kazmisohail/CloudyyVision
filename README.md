@@ -8,9 +8,8 @@ CloudVision is a state-of-the-art satellite imagery analysis platform designed t
 ## 🚀 Key Features
 
 *   **Multi-Model Inference**: Choose between three specialized models for different analysis needs:
-    *   **V1 (Improved)**: Standard Attention U-Net for general segmentation.
-    *   **V2 (Advanced)**: Enhanced model with 8-channel input processing.
-    *   **V3 (Balanced)**: Optimized for class balance (Shadows/Thin Clouds) using Dice Loss.
+    *   **V1 (Best Performing)**: The most accurate model, successfully identifying clear skies, shadows, and cloud types with high precision. **Recommended for all tasks.**
+    *   **V2 & V3 (Legacy)**: Previous versions with different weight configurations. Included for comparative purposes.
 *   **Shadow Mitigation**: Automated removal of cloud shadows to recover ground details.
 *   **AI Analysis**: Integrated **Google Gemini 2.5** to generate detailed meteorological reports based on segmentation metrics.
 *   **Interactive Dashboard**: Real-time visualization of original imagery, segmentation masks, and class distribution.
