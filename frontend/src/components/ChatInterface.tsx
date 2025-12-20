@@ -10,7 +10,7 @@ interface ChatInterfaceProps {
 const ChatInterface: React.FC<ChatInterfaceProps> = ({ metrics }) => {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<{ role: 'user' | 'ai'; content: string }[]>([
-        { role: 'ai', content: "Hello! I'm OrbitAI. I can analyze the current satellite image metrics for you. Ask me anything about the cloud coverage or solar potential!" }
+        { role: 'ai', content: "Hello! I'm CloudVision AI. I can analyze the current satellite image metrics for you. Ask me anything about the cloud coverage or solar potential!" }
     ]);
     const [input, setInput] = useState("");
     const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +64,7 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ metrics }) => {
                         <Bot className="h-5 w-5 text-cyan-400" />
                     </div>
                     <div>
-                        <h3 className="text-white font-semibold">OrbitAI Assistant</h3>
+                        <h3 className="text-white font-semibold">CloudVision AI</h3>
                         <p className="text-xs text-green-400 flex items-center gap-1">
                             <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse"></span>
                             Online

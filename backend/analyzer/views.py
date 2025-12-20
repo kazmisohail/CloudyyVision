@@ -176,7 +176,7 @@ class ChatView(APIView):
             context = f"The user is looking at an image with the following stats: {json.dumps(metrics)}." if metrics else "No specific image context provided."
             
             system_prompt = (
-                "You are OrbitAI, an expert Satellite Analyst for CloudVision. "
+                "You are CloudVision AI, an expert Satellite Analyst for CloudVision. "
                 f"{context} "
                 "Answer the user's questions specifically based on this data if available. "
                 "Keep answers concise, professional, and helpful. "
@@ -184,7 +184,7 @@ class ChatView(APIView):
                 "If asked about weather, refer to the Cloud Coverage."
             )
             
-            full_prompt = f"{system_prompt}\n\nUser: {message}\nOrbitAI:"
+            full_prompt = f"{system_prompt}\n\nUser: {message}\nCloudVision AI:"
             
             response = model.generate_content(full_prompt)
             return Response({'reply': response.text})

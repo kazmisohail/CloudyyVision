@@ -230,7 +230,10 @@ def mask_to_base64(mask):
 def mitigate_shadows(input_tensor, mask):
     """
     Uses histogram matching to mitigate shadows.
-    Treats Class 1 (Shadow) in the remapped mask as the region to correct.
+    User Request: Make Clear/Fill regions look like Shadow regions.
+    Target (Reference): Shadow Class (1)
+    Source (To Modify): Clear/Fill Class (0)
+    
     Input: input_tensor (1, 256, 256, 8) - Preprocessed data
     """
     # 1. Extract RGB and Convert to uint8 (0-255)
@@ -247,30 +250,50 @@ def mitigate_shadows(input_tensor, mask):
         
     img_array = (rgb_norm * 255).astype(np.uint8)
     
-    # Create a boolean mask for shadows
+    # Create masks
+    # Shadow is Class 1
     shadow_mask = (mask == 1)
+    # Clear/Fill is Class 0 (and maybe others if we consider them "non-shadow" to be fixed)
+    # The user specifically mentioned "clear and fill labels(as we merged clear and fill)".
+    # In remap_classes: 0 is Clear (which includes Fill/Other/Clear).
+    # So we want to modify Class 0 to look like Class 1.
+    clear_mask = (mask == 0)
     
-    if not np.any(shadow_mask):
-        return img_array # No shadows to mitigate
+    # If we don't have both shadow and clear regions, we can't match them.
+    if not np.any(shadow_mask) or not np.any(clear_mask):
+        return img_array 
 
     mitigated = img_array.copy()
     
-    # Simple statistical correction
-    for c in range(3): # RGB
-        valid = img_array[:, :, c][~shadow_mask]
-        shadow = img_array[:, :, c][shadow_mask]
-        
-        if len(valid) > 0 and len(shadow) > 0:
-            mu_v, std_v = np.mean(valid), np.std(valid)
-            mu_s, std_s = np.mean(shadow), np.std(shadow)
+    try:
+        # Histogram Matching: Match Clear (Source) -> Shadow (Reference)
+        for c in range(3): # RGB
+            clear_pixels = img_array[:, :, c][clear_mask]
+            shadow_pixels = img_array[:, :, c][shadow_mask]
             
-            # Normalize shadow and map to valid stats
-            if std_s > 0:
-                corrected = (shadow - mu_s) / std_s * std_v + mu_v
-            else:
-                corrected = shadow - mu_s + mu_v
+            if len(clear_pixels) > 0 and len(shadow_pixels) > 0:
+                # 1. Compute CDF of source (Clear)
+                src_values, src_unique_indices, src_counts = np.unique(clear_pixels, return_inverse=True, return_counts=True)
+                src_cdf = np.cumsum(src_counts).astype(np.float64)
+                src_cdf /= src_cdf[-1]
                 
-            mitigated[:, :, c][shadow_mask] = np.clip(corrected, 0, 255)
+                # 2. Compute CDF of reference (Shadow)
+                ref_values, ref_counts = np.unique(shadow_pixels, return_counts=True)
+                ref_cdf = np.cumsum(ref_counts).astype(np.float64)
+                ref_cdf /= ref_cdf[-1]
+                
+                # 3. Map source values to reference values
+                interp_values = np.interp(src_cdf, ref_cdf, ref_values)
+                
+                # 4. Apply mapping
+                matched_clear_pixels = interp_values[src_unique_indices]
+                
+                # Update the mitigated image: Modify CLEAR pixels to look like SHADOW
+                mitigated[:, :, c][clear_mask] = matched_clear_pixels
+                
+    except Exception as e:
+        print(f"Error in histogram matching: {e}")
+        return img_array
             
     return mitigated
 

@@ -6,3 +6,4 @@ pillow
 scikit-image
 python-dotenv
 google-generativeai
+opencv-python
